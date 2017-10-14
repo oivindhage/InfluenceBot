@@ -17,7 +17,7 @@ namespace InfluenceBot.GUI.Model
             Tiles = new Tile[6, 6];
             for (int x = 0; x < 6; ++x)
                 for (int y = 0; y < 6; ++y)
-                    Tiles[x, y] = new Tile();
+                    Tiles[x, y] = new Tile { X = x, Y = y };
             Color[] Colors = new Color[] { Color.Aqua, Color.Red, Color.Lime, Color.Yellow };
             Players = new Player[numberOfPlayers];
             for (int i = 0; i < numberOfPlayers; ++i)
@@ -28,6 +28,31 @@ namespace InfluenceBot.GUI.Model
                 Players[i].Tiles.Add(tile);
                 tile.ArmyCount = 2;
                 Players[i].TotalArmyStrength = 2;
+            }
+        }
+
+        public void Attack(Tile from, Tile to)
+        {
+            int fromTmp = from.ArmyCount - 1;
+            int toTmp = to.ArmyCount;
+            while (toTmp > 0 && fromTmp > 0)
+            {
+                if (r.NextDouble() > 0.5)
+                    toTmp--;
+                else
+                    fromTmp--;
+            }
+            if (to.Player != null)
+                to.Player.TotalArmyStrength -= to.ArmyCount - toTmp;
+            from.Player.TotalArmyStrength -= from.ArmyCount - fromTmp - 1;
+            from.ArmyCount = 1;
+            if (fromTmp > 0)
+            {
+                if (to.Player != null)
+                    to.Player.Tiles.Remove(to);
+                to.Player = from.Player;
+                to.ArmyCount = fromTmp;
+                from.Player.Tiles.Add(to);
             }
         }
 
