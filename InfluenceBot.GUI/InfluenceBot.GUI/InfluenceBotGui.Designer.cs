@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.picBoard = new System.Windows.Forms.PictureBox();
             this.btnInitializeBoard = new System.Windows.Forms.Button();
             this.label1 = new System.Windows.Forms.Label();
@@ -35,6 +36,8 @@
             this.btnExtractAndPrint = new System.Windows.Forms.Button();
             this.btnCurrentPlayerAttack = new System.Windows.Forms.Button();
             this.btnEndTurn = new System.Windows.Forms.Button();
+            this.tmrGame = new System.Windows.Forms.Timer(this.components);
+            this.btnStartStopGame = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.picBoard)).BeginInit();
             this.SuspendLayout();
             // 
@@ -103,11 +106,26 @@
             this.btnEndTurn.UseVisualStyleBackColor = true;
             this.btnEndTurn.Click += new System.EventHandler(this.btnEndTurn_Click);
             // 
+            // tmrGame
+            // 
+            this.tmrGame.Tick += new System.EventHandler(this.tmrGame_Tick);
+            // 
+            // btnStartStopGame
+            // 
+            this.btnStartStopGame.Location = new System.Drawing.Point(12, 448);
+            this.btnStartStopGame.Name = "btnStartStopGame";
+            this.btnStartStopGame.Size = new System.Drawing.Size(300, 23);
+            this.btnStartStopGame.TabIndex = 7;
+            this.btnStartStopGame.Text = "Start/Stop game";
+            this.btnStartStopGame.UseVisualStyleBackColor = true;
+            this.btnStartStopGame.Click += new System.EventHandler(this.btnStartStopGame_Click);
+            // 
             // InfluenceBotGui
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1154, 608);
+            this.Controls.Add(this.btnStartStopGame);
             this.Controls.Add(this.btnEndTurn);
             this.Controls.Add(this.btnCurrentPlayerAttack);
             this.Controls.Add(this.btnExtractAndPrint);
@@ -132,6 +150,8 @@
         private System.Windows.Forms.Button btnExtractAndPrint;
         private System.Windows.Forms.Button btnCurrentPlayerAttack;
         private System.Windows.Forms.Button btnEndTurn;
+        private System.Windows.Forms.Timer tmrGame;
+        private System.Windows.Forms.Button btnStartStopGame;
     }
 }
 

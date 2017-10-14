@@ -17,6 +17,7 @@ namespace InfluenceBot.GUI
         private Brush brush;
         private StringFormat stringFormat;
         private AttackStateNN attackStateNN;
+        private ReinforceStateNN reinforceStateNN;
         private int maxX;
         private int maxY;
         private int tileWidth;
@@ -32,12 +33,13 @@ namespace InfluenceBot.GUI
             brush = new SolidBrush(Color.FromArgb(255, 0, 0, 255));
             stringFormat = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
             attackStateNN = new AttackStateNN();
+            reinforceStateNN = new ReinforceStateNN();
         }
 
         private void btnInitializeBoard_Click(object sender, EventArgs e)
         {
             board = new Board();
-            board.Initialize(3);
+            board.Initialize(4);
             maxX = board.Tiles.GetLength(0);
             maxY = board.Tiles.GetLength(1);
             tileWidth = picBoard.Width / maxX;
@@ -49,17 +51,17 @@ namespace InfluenceBot.GUI
         {
             for (int x = 0; x < maxX; ++x)
                 for (int y = 0; y < maxY; ++y)
-                    DrawTile(board, tileWidth, tileHeight, x, y);
+                    DrawTile(board.Tiles[x, y]);
         }
 
-        private void DrawTile(Board board, int tileWidth, int tileHeight, int x, int y)
+        private void DrawTile(Tile tile)
         {
-            Color color = board.GetColor(x, y);
-            int armyCount = board.GetArmyCount(x, y);
+            Color color = tile.Player?.Color ?? Color.LightGray;
+            int armyCount = board.GetArmyCount(tile.X, tile.Y);
             string armyCountText = armyCount == 0
                 ? string.Empty
                 : $"{armyCount}";
-            var rectangleF = new RectangleF(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
+            var rectangleF = new RectangleF(tile.X * tileWidth, tile.Y * tileHeight, tileWidth, tileHeight);
             g.FillRectangle(new SolidBrush(color), rectangleF);
             g.DrawRectangle(pen, rectangleF.X, rectangleF.Y, rectangleF.X + rectangleF.Width, rectangleF.Y + rectangleF.Height);
             g.DrawString(armyCountText, font, brush, rectangleF, stringFormat);
@@ -67,10 +69,10 @@ namespace InfluenceBot.GUI
 
         private void btnExtractAndPrint_Click(object sender, EventArgs e)
         {
-            var states = AttackStateExtractor.ExtractAttackStates(board, board.Players[board.CurrentPlayer]);
+            var states = AttackStateExtractor.ExtractAttackStates(board, board.CurrentPlayer);
             foreach (var state in states)
             {
-                txtStatistics.AppendText($"From {state.FromX},{state.FromY} to {state.ToX},{state.ToY}, score {attackStateNN.Evaluate(state)}{Environment.NewLine}");
+                txtStatistics.AppendText($"From {state.From.X},{state.From.Y} to {state.To.X},{state.To.Y}, score {attackStateNN.Evaluate(state)}{Environment.NewLine}");
                 txtStatistics.AppendText(string.Join("\t", state.State.Skip(0).Take(4).Select(x => $"{x}").ToArray()) + Environment.NewLine);
                 txtStatistics.AppendText(string.Join("\t", state.State.Skip(4).Take(4).Select(x => $"{x}").ToArray()) + Environment.NewLine);
                 txtStatistics.AppendText(Environment.NewLine);
@@ -85,31 +87,80 @@ namespace InfluenceBot.GUI
         }
 
         private void btnCurrentPlayerAttack_Click(object sender, EventArgs e)
+            => CurrentPlayerAttack();
+
+        private bool CurrentPlayerAttack()
         {
-            var states = AttackStateExtractor.ExtractAttackStates(board, board.Players[board.CurrentPlayer]).ToList();
+            var states = AttackStateExtractor.ExtractAttackStates(board, board.CurrentPlayer).ToList();
             states.ForEach(x => x.Score = attackStateNN.Evaluate(x));
             var chosenState = states.Where(x => x.Score > 0.5).OrderByDescending(x => x.Score).FirstOrDefault();
             if (chosenState == null)
             {
                 txtStatistics.Text = "Could not attack, no attack states are good enough";
-                return;
+                return false; ;
             }
             board.Attack(chosenState.From, chosenState.To);
-            DrawTile(board, tileWidth, tileHeight, chosenState.FromX, chosenState.FromY);
-            DrawTile(board, tileWidth, tileHeight, chosenState.ToX, chosenState.ToY);
+            board.CurrentPlayer.AttackStates.Add(chosenState);
+            DrawTile(chosenState.From);
+            DrawTile(chosenState.To);
+            return true;
         }
 
         private void btnEndTurn_Click(object sender, EventArgs e)
+            => EndTurn();
+
+        private void EndTurn()
         {
-            var currentPlayer = board.Players[board.CurrentPlayer];
-            foreach (var tile in currentPlayer.Tiles.Where(x => x.ArmyCount < 5))
+            board.CurrentPlayerIndex = (board.CurrentPlayerIndex + 1) % board.Players.Length;
+            txtStatistics.Text = $"Current player is {board.CurrentPlayerIndex}{Environment.NewLine}";
+        }
+
+        private void btnStartStopGame_Click(object sender, EventArgs e)
+        {
+            tmrGame.Enabled = !tmrGame.Enabled;
+            btnCurrentPlayerAttack.Enabled = !tmrGame.Enabled;
+            btnExtractAndPrint.Enabled = !tmrGame.Enabled;
+            btnEndTurn.Enabled = !tmrGame.Enabled;
+            btnInitializeBoard.Enabled = !tmrGame.Enabled;
+        }
+
+        private void tmrGame_Tick(object sender, EventArgs e)
+        {
+            if (board.AttachPhase)
             {
-                tile.ArmyCount++;
-                currentPlayer.TotalArmyStrength++;
-                DrawTile(board, tileWidth, tileHeight, tile.X, tile.Y);
+                if (!CurrentPlayerAttack())
+                {
+                    board.AttachPhase = false;
+                    board.CurrentPlayer.Reinforcements = board.CurrentPlayer.OwnedTiles;
+                }
             }
-            board.CurrentPlayer = (board.CurrentPlayer + 1) % board.Players.Length;
-            txtStatistics.Text = $"Current player is {board.CurrentPlayer}{Environment.NewLine}";
+            else
+            {
+                if (board.CurrentPlayer.Reinforcements > 0)
+                    CurrentPlayerReinforce();
+                else
+                {
+                    board.AttachPhase = true;
+                    EndTurn();
+                }
+            }
+        }
+
+        private void CurrentPlayerReinforce()
+        {
+            var reinforceStates = ReinforceStateExtractor.ExtractReinforceStates(board, board.CurrentPlayer).ToList();
+            reinforceStates.ForEach(x => x.Score = reinforceStateNN.Evaluate(x));
+            var reinforceState = reinforceStates.OrderByDescending(x => x.Score).FirstOrDefault();
+            if (reinforceState == null)
+            {
+                board.CurrentPlayer.Reinforcements = 0;
+                return;
+            }
+            reinforceState.Tile.ArmyCount++;
+            DrawTile(reinforceState.Tile);
+            board.CurrentPlayer.TotalArmyStrength++;
+            board.CurrentPlayer.Reinforcements--;
+            board.CurrentPlayer.ReinforceStates.Add(reinforceState);
         }
     }
 }

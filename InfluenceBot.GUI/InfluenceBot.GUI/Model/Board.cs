@@ -7,10 +7,11 @@ namespace InfluenceBot.GUI.Model
     {
         public Tile[,] Tiles;
         public Player[] Players;
-        public int CurrentPlayer;
+        public int CurrentPlayerIndex;
+        public bool AttachPhase;
         Random r = new Random((int)DateTime.Now.Ticks);
 
-        internal void Initialize(int numberOfPlayers)
+        public void Initialize(int numberOfPlayers)
         {
             if (numberOfPlayers > 4)
                 throw new InvalidOperationException("Max 4 players allowed.");
@@ -29,7 +30,11 @@ namespace InfluenceBot.GUI.Model
                 tile.ArmyCount = 2;
                 Players[i].TotalArmyStrength = 2;
             }
+            AttachPhase = true;
         }
+
+        public Player CurrentPlayer
+            => Players[CurrentPlayerIndex];
 
         public void Attack(Tile from, Tile to)
         {
@@ -58,9 +63,6 @@ namespace InfluenceBot.GUI.Model
 
         internal int GetArmyCount(int x, int y)
             => Tiles[x, y].ArmyCount;
-
-        internal Color GetColor(int x, int y)
-            => Tiles[x, y].Player?.Color ?? Color.LightGray;
 
         private Tile GetRandomUnoccupiedTile()
         {

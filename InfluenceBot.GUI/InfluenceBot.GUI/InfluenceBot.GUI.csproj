@@ -65,8 +65,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BusinessLogic\ReinforceStateNN.cs" />
+    <Compile Include="BusinessLogic\ReinforceStateExtractor.cs" />
     <Compile Include="BusinessLogic\AttackStateExtractor.cs" />
     <Compile Include="BusinessLogic\AttackStateNN.cs" />
+    <Compile Include="BusinessLogic\StateExtractor.cs" />
     <Compile Include="InfluenceBotGui.cs">
       <SubType>Form</SubType>
     </Compile>

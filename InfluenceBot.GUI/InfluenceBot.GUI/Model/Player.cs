@@ -9,6 +9,10 @@ namespace InfluenceBot.GUI.Model
         public Color Color;
         public int TotalArmyStrength;
         public List<Tile> Tiles;
+        public int Reinforcements;
+        public int Ranking;
+        public List<ReinforceState> ReinforceStates;
+        public List<AttackState> AttackStates;
 
         public int OwnedTiles
             => Tiles.Count;
@@ -16,6 +20,8 @@ namespace InfluenceBot.GUI.Model
         public Player()
         {
             Tiles = new List<Tile>();
+            ReinforceStates = new List<ReinforceState>();
+            AttackStates = new List<AttackState>();
         }
     }
 }

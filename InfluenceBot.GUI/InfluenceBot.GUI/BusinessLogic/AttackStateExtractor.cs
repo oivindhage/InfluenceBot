@@ -1,7 +1,6 @@
 ﻿using InfluenceBot.GUI.Model;
 using System.Collections.Generic;
 using System;
-using System.Linq;
 
 namespace InfluenceBot.GUI.BusinessLogic
 {
@@ -11,9 +10,9 @@ namespace InfluenceBot.GUI.BusinessLogic
         {
             int xMax = board.Tiles.GetLength(0);
             int yMax = board.Tiles.GetLength(1);
-            Tuple<Player, int>[] armyStrengths = GetArmyStrengths(board, player);
-            Tuple<Player, int>[] ownedTiles = GetOwnedTiles(board, player);
-            double[] armyStrengthsAndOwnedTiles = GetArmyStrengthsAndOwnedTiles(armyStrengths, ownedTiles);
+            Tuple<Player, int>[] armyStrengths = StateExtractor.GetArmyStrengths(board, player);
+            Tuple<Player, int>[] ownedTiles = StateExtractor.GetOwnedTiles(board, player);
+            double[] armyStrengthsAndOwnedTiles = StateExtractor.GetArmyStrengthsAndOwnedTiles(armyStrengths, ownedTiles);
             for (int x = 0; x < xMax; ++x)
                 for (int y = 0; y < yMax; ++y)
                     if (board.Tiles[x, y].Player == player && board.Tiles[x, y].ArmyCount > 1)
@@ -25,25 +24,25 @@ namespace InfluenceBot.GUI.BusinessLogic
         {
             if (x > 0 && board.Tiles[x - 1, y].Player != player)//can attack left
             {
-                AttackState attackState = BuildAttackState(armyStrengthsAndOwnedTiles, x, y, x - 1, y, board.Tiles);
+                AttackState attackState = BuildAttackState(armyStrengthsAndOwnedTiles,board.Tiles[x,y], board.Tiles[x-1, y]);
                 UpdateState(board, ownedTiles, armyStrengthsAndOwnedTiles, x - 2, x + 3, 1, y - 2, y + 3, 1, attackState);
                 yield return attackState; 
             }
             if (x < (xMax - 1) && board.Tiles[x + 1, y].Player != player)//can attack right
             {
-                AttackState attackState = BuildAttackState(armyStrengthsAndOwnedTiles, x, y, x + 1, y, board.Tiles);
+                AttackState attackState = BuildAttackState(armyStrengthsAndOwnedTiles,board.Tiles[x,y], board.Tiles[x+1, y]);
                 UpdateState(board, ownedTiles, armyStrengthsAndOwnedTiles, x + 2, x - 3, -1, y + 2, y - 3, -1, attackState);
                 yield return attackState; 
             }
             if (y > 0 && board.Tiles[x, y - 1].Player != player)//can attack up
             {
-                AttackState attackState = BuildAttackState(armyStrengthsAndOwnedTiles, x, y, x, y - 1, board.Tiles);
+                AttackState attackState = BuildAttackState(armyStrengthsAndOwnedTiles,board.Tiles[x,y], board.Tiles[x, y-1]);
                 UpdateState(board, ownedTiles, armyStrengthsAndOwnedTiles, x + 2, x - 3, -1, y - 2, y + 3, 1,attackState);
                 yield return attackState; 
             }
             if (y < (yMax - 1) && board.Tiles[x, y + 1].Player != player)//can attack down
             {
-                AttackState attackState = BuildAttackState(armyStrengthsAndOwnedTiles, x, y, x, y + 1, board.Tiles);
+                AttackState attackState = BuildAttackState(armyStrengthsAndOwnedTiles,board.Tiles[x,y], board.Tiles[x, y+1]);
                 UpdateState(board, ownedTiles, armyStrengthsAndOwnedTiles, x - 2, x + 3, 1, y + 2, y - 3, -1, attackState);
                 yield return attackState; 
             }
@@ -81,66 +80,14 @@ namespace InfluenceBot.GUI.BusinessLogic
             result.State[8 + counter + (25 * tileOwner)] = currentTile.ArmyCount / 5.0;
         }
 
-        private static AttackState BuildAttackState(double[] armyStrengthsAndOwnedTiles, int fromX, int fromY, int toX, int toY, Tile[,] tiles)
+        private static AttackState BuildAttackState(double[] armyStrengthsAndOwnedTiles, Tile from, Tile to)
         {
             AttackState result = new AttackState();
-            result.FromX = fromX;
-            result.ToX = toX;
-            result.FromY = fromY;
-            result.ToY = toY;
-            result.From = tiles[fromX, fromY];
-            result.To = tiles[toX, toY];
+            result.From = from;
+            result.To = to;
             for (int i = 0; i < 8; ++i)
                 result.State[i] = armyStrengthsAndOwnedTiles[i];
             return result;
-        }
-
-        private static double[] GetArmyStrengthsAndOwnedTiles(Tuple<Player, int>[] armyStrengths, Tuple<Player, int>[] ownedTiles)
-        {
-            var result = new double[8];
-            double maxArmies = armyStrengths.Max(x => x.Item2);
-            for (int i = 0; i < armyStrengths.Length; ++i)
-            {
-                if (armyStrengths[i] == null)
-                    result[i] = 0;
-                else
-                    result[i] = armyStrengths[i].Item2 / maxArmies;
-            }
-            double maxOwnedTiles = ownedTiles.Max(x => x.Item2);
-            for (int i = 0; i < ownedTiles.Length; ++i)
-            {
-                if (ownedTiles[i] == null)
-                    result[4 + i] = 0;
-                else
-                    result[4 + i] = ownedTiles[i].Item2 / maxOwnedTiles;
-            }
-            return result;
-        }
-
-        private static Tuple<Player, int>[] GetArmyStrengths(Board board, Player player)
-        {
-            List<Tuple<Player, int>> strengths = new List<Tuple<Player, int>>();
-            strengths.Add(new Tuple<Player, int>(player, player.TotalArmyStrength));
-            foreach (Player p in board.Players.OrderByDescending(x => x.TotalArmyStrength))
-            {
-                if (p == player)
-                    continue;
-                strengths.Add(new Tuple<Player, int>(p, p.TotalArmyStrength));
-            }
-            return strengths.ToArray();
-        }
-
-        private static Tuple<Player, int>[] GetOwnedTiles(Board board, Player player)
-        {
-            List<Tuple<Player, int>> ownedtiles = new List<Tuple<Player, int>>();
-            ownedtiles.Add(new Tuple<Player, int>(player, player.OwnedTiles));
-            foreach (Player p in board.Players.OrderByDescending(x => x.OwnedTiles))
-            {
-                if (p == player)
-                    continue;
-                ownedtiles.Add(new Tuple<Player, int>(p, p.OwnedTiles));
-            }
-            return ownedtiles.ToArray();
         }
     }
 }
