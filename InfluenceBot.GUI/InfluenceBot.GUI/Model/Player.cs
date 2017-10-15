@@ -13,6 +13,7 @@ namespace InfluenceBot.GUI.Model
         public int Ranking;
         public List<ReinforceState> ReinforceStates;
         public List<AttackState> AttackStates;
+        public bool Active;
 
         public int OwnedTiles
             => Tiles.Count;

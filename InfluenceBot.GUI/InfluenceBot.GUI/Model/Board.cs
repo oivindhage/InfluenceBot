@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Drawing;
+using System.Linq;
 
 namespace InfluenceBot.GUI.Model
 {
@@ -10,6 +11,8 @@ namespace InfluenceBot.GUI.Model
         public int CurrentPlayerIndex;
         public bool AttachPhase;
         Random r = new Random((int)DateTime.Now.Ticks);
+        public int NextRanking;
+        public bool Finished;
 
         public void Initialize(int numberOfPlayers)
         {
@@ -23,14 +26,20 @@ namespace InfluenceBot.GUI.Model
             Players = new Player[numberOfPlayers];
             for (int i = 0; i < numberOfPlayers; ++i)
             {
-                Players[i] = new Player { Name = $"Player {1}", Color = Colors[i] };
+                Players[i] = new Player
+                {
+                    Name = $"Player {1}",
+                    Color = Colors[i],
+                    Active = true,
+                    TotalArmyStrength = 2
+                };
                 var tile = GetRandomUnoccupiedTile();
                 tile.Player = Players[i];
                 Players[i].Tiles.Add(tile);
                 tile.ArmyCount = 2;
-                Players[i].TotalArmyStrength = 2;
             }
             AttachPhase = true;
+            NextRanking = numberOfPlayers;
         }
 
         public Player CurrentPlayer
@@ -38,27 +47,45 @@ namespace InfluenceBot.GUI.Model
 
         public void Attack(Tile from, Tile to)
         {
-            int fromTmp = from.ArmyCount - 1;
-            int toTmp = to.ArmyCount;
-            while (toTmp > 0 && fromTmp > 0)
+            while (to.ArmyCount > 0 && from.ArmyCount > 1)
+                DoSingleAttackRound(from, to);
+            if (to.ArmyCount == 0 && to.Player != null)
             {
-                if (r.NextDouble() > 0.5)
-                    toTmp--;
-                else
-                    fromTmp--;
+                DeactivatePlayerIfDead(to.Player);
+                to.Player.Tiles.Remove(to);
+                to.Player = null;
             }
-            if (to.Player != null)
-                to.Player.TotalArmyStrength -= to.ArmyCount - toTmp;
-            from.Player.TotalArmyStrength -= from.ArmyCount - fromTmp - 1;
-            from.ArmyCount = 1;
-            if (fromTmp > 0)
+            if (from.ArmyCount > 1)
             {
-                if (to.Player != null)
-                    to.Player.Tiles.Remove(to);
+                to.ArmyCount = from.ArmyCount - 1;
+                from.ArmyCount = 1;
                 to.Player = from.Player;
-                to.ArmyCount = fromTmp;
-                from.Player.Tiles.Add(to);
+                to.Player.Tiles.Add(to);
             }
+            if (Players.Count(x => x.Active) == 1)
+                Finished = true;
+        }
+
+        private void DoSingleAttackRound(Tile from, Tile to)
+        {
+            if (r.NextDouble() > 0.5)
+            {
+                to.ArmyCount--;
+                to.Player.TotalArmyStrength--;
+            }
+            else
+            {
+                from.ArmyCount--;
+                from.Player.TotalArmyStrength--;
+            }
+        }
+
+        private void DeactivatePlayerIfDead(Player player)
+        {
+            if (player.TotalArmyStrength > 0)
+                return;
+            player.Ranking = NextRanking--;
+            player.Active = false;
         }
 
         internal int GetArmyCount(int x, int y)

@@ -1,4 +1,5 @@
 ﻿using InfluenceBot.GUI.BusinessLogic;
+using InfluenceBot.GUI.BusinessLogic.Statistics;
 using InfluenceBot.GUI.Model;
 using System;
 using System.Drawing;
@@ -12,7 +13,7 @@ namespace InfluenceBot.GUI
     {
         private Board board;
         private Graphics g;
-        private Pen pen = new Pen(Color.Black);
+        private Pen pen;
         private Font font;
         private Brush brush;
         private StringFormat stringFormat;
@@ -31,6 +32,7 @@ namespace InfluenceBot.GUI
             var fontFamily = new FontFamily("Times New Roman");
             font = new Font(fontFamily, 16, FontStyle.Regular, GraphicsUnit.Pixel);
             brush = new SolidBrush(Color.FromArgb(255, 0, 0, 255));
+            pen = new Pen(Color.Black);
             stringFormat = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
             attackStateNN = new AttackStateNN();
             reinforceStateNN = new ReinforceStateNN();
@@ -70,20 +72,7 @@ namespace InfluenceBot.GUI
         private void btnExtractAndPrint_Click(object sender, EventArgs e)
         {
             var states = AttackStateExtractor.ExtractAttackStates(board, board.CurrentPlayer);
-            foreach (var state in states)
-            {
-                txtStatistics.AppendText($"From {state.From.X},{state.From.Y} to {state.To.X},{state.To.Y}, score {attackStateNN.Evaluate(state)}{Environment.NewLine}");
-                txtStatistics.AppendText(string.Join("\t", state.State.Skip(0).Take(4).Select(x => $"{x}").ToArray()) + Environment.NewLine);
-                txtStatistics.AppendText(string.Join("\t", state.State.Skip(4).Take(4).Select(x => $"{x}").ToArray()) + Environment.NewLine);
-                txtStatistics.AppendText(Environment.NewLine);
-                for (int i = 0; i < 4; ++i)
-                {
-                    for (int row = 0; row < 5; ++row)
-                        txtStatistics.AppendText(string.Join("\t", state.State.Skip(8 + i * 25 + row * 5).Take(5).Select(x => $"{x}").ToArray()) + Environment.NewLine);
-                    txtStatistics.AppendText(Environment.NewLine);
-                }
-                txtStatistics.AppendText(Environment.NewLine + "---------------------------------------------" + Environment.NewLine);
-            }
+            txtStatistics.Text= AttackStateStatistics.GetStatistics(states, attackStateNN);
         }
 
         private void btnCurrentPlayerAttack_Click(object sender, EventArgs e)
@@ -116,6 +105,9 @@ namespace InfluenceBot.GUI
         }
 
         private void btnStartStopGame_Click(object sender, EventArgs e)
+            => ToggleTimer();
+
+        private void ToggleTimer()
         {
             tmrGame.Enabled = !tmrGame.Enabled;
             btnCurrentPlayerAttack.Enabled = !tmrGame.Enabled;
@@ -124,9 +116,13 @@ namespace InfluenceBot.GUI
             btnInitializeBoard.Enabled = !tmrGame.Enabled;
         }
 
-        private void tmrGame_Tick(object sender, EventArgs e)
+        private void GameTick()
         {
-            if (board.AttachPhase)
+            if (board.Finished)
+            {
+                ToggleTimer();
+            }
+            else if (board.AttachPhase)
             {
                 if (!CurrentPlayerAttack())
                 {
@@ -144,7 +140,11 @@ namespace InfluenceBot.GUI
                     EndTurn();
                 }
             }
+            txtStatistics.Text = PlayerStatistics.GetStatistics(board);
         }
+
+        private void tmrGame_Tick(object sender, EventArgs e)
+            => GameTick();
 
         private void CurrentPlayerReinforce()
         {
@@ -162,5 +162,11 @@ namespace InfluenceBot.GUI
             board.CurrentPlayer.Reinforcements--;
             board.CurrentPlayer.ReinforceStates.Add(reinforceState);
         }
+
+        private void numTimerInterval_ValueChanged(object sender, EventArgs e)
+            => tmrGame.Interval = (int)numTimerInterval.Value;
+
+        private void btnAdvanceOneTick_Click(object sender, EventArgs e)
+            => GameTick();
     }
 }

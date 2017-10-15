@@ -70,6 +70,8 @@
     <Compile Include="BusinessLogic\AttackStateExtractor.cs" />
     <Compile Include="BusinessLogic\AttackStateNN.cs" />
     <Compile Include="BusinessLogic\StateExtractor.cs" />
+    <Compile Include="BusinessLogic\Statistics\AttackStateStatistics.cs" />
+    <Compile Include="BusinessLogic\Statistics\PlayerStatistics.cs" />
     <Compile Include="InfluenceBotGui.cs">
       <SubType>Form</SubType>
     </Compile>
