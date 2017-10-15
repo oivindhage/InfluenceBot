@@ -6,7 +6,7 @@ namespace InfluenceBot.GUI.BusinessLogic
 {
     public static class AttackStateExtractor
     {
-        public static IEnumerable<AttackState> ExtractAttackStates(Board board, Player player)
+        public static IEnumerable<AttackState> ExtractAttackStates(GameManager board, Player player)
         {
             int xMax = board.Tiles.GetLength(0);
             int yMax = board.Tiles.GetLength(1);
@@ -20,7 +20,7 @@ namespace InfluenceBot.GUI.BusinessLogic
                             yield return attackState;
         }
 
-        private static IEnumerable<AttackState> ExtractAttackStates(Board board, Player player, int x, int y, int xMax, int yMax, Tuple<Player, int>[] armyStrengths, Tuple<Player, int>[] ownedTiles, double[] armyStrengthsAndOwnedTiles)
+        private static IEnumerable<AttackState> ExtractAttackStates(GameManager board, Player player, int x, int y, int xMax, int yMax, Tuple<Player, int>[] armyStrengths, Tuple<Player, int>[] ownedTiles, double[] armyStrengthsAndOwnedTiles)
         {
             if (x > 0 && board.Tiles[x - 1, y].Player != player)//can attack left
             {
@@ -48,7 +48,7 @@ namespace InfluenceBot.GUI.BusinessLogic
             }
         }
 
-        private static void UpdateState(Board board, Tuple<Player, int>[] ownedTiles, double[] armyStrengthsAndOwnedTiles, int startX, int endX, int stepX, int startY, int endY, int stepY,AttackState attackState)
+        private static void UpdateState(GameManager board, Tuple<Player, int>[] ownedTiles, double[] armyStrengthsAndOwnedTiles, int startX, int endX, int stepX, int startY, int endY, int stepY,AttackState attackState)
         {
             int counter = 0;
             for (int tmpX = startX; tmpX != endX; tmpX += stepX)

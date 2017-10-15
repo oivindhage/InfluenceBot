@@ -6,7 +6,7 @@ namespace InfluenceBot.GUI.BusinessLogic
 {
     public static class ReinforceStateExtractor
     {
-        public static IEnumerable<ReinforceState> ExtractReinforceStates(Board board, Player player)
+        public static IEnumerable<ReinforceState> ExtractReinforceStates(GameManager board, Player player)
         {
             int xMax = board.Tiles.GetLength(0);
             int yMax = board.Tiles.GetLength(1);
@@ -20,7 +20,7 @@ namespace InfluenceBot.GUI.BusinessLogic
                             yield return reinforceState;
         }
 
-        private static IEnumerable<ReinforceState> ExtractReinforcementStates(Board board, Player player, int x, int y, int xMax, int yMax, Tuple<Player, int>[] armyStrengths, Tuple<Player, int>[] ownedTiles, double[] armyStrengthsAndOwnedTiles)
+        private static IEnumerable<ReinforceState> ExtractReinforcementStates(GameManager board, Player player, int x, int y, int xMax, int yMax, Tuple<Player, int>[] armyStrengths, Tuple<Player, int>[] ownedTiles, double[] armyStrengthsAndOwnedTiles)
         {
             var reinforceState = BuildReinforceState(armyStrengthsAndOwnedTiles, board.Tiles[x, y]);
             //left heavy board
@@ -53,7 +53,7 @@ namespace InfluenceBot.GUI.BusinessLogic
             yield return reinforceState;
         }
 
-        private static void UpdateState(Board board, Tuple<Player, int>[] ownedTiles, int startX, int endX, int stepX, int startY, int endY, int stepY, ReinforceState reinforceState)
+        private static void UpdateState(GameManager board, Tuple<Player, int>[] ownedTiles, int startX, int endX, int stepX, int startY, int endY, int stepY, ReinforceState reinforceState)
         {
             int counter = 0;
             for (int tmpX = startX; tmpX != endX; tmpX += stepX)

@@ -11,7 +11,7 @@ namespace InfluenceBot.GUI
 {
     public partial class InfluenceBotGui : Form
     {
-        private Board board;
+        private GameManager manager;
         private Graphics g;
         private Pen pen;
         private Font font;
@@ -40,16 +40,16 @@ namespace InfluenceBot.GUI
 
         private void btnInitializeBoard_Click(object sender, EventArgs e)
         {
-            board = new Board();
-            board.Initialize(4);
-            maxX = board.Tiles.GetLength(0);
-            maxY = board.Tiles.GetLength(1);
+            manager = new GameManager();
+            manager.Initialize(4);
+            maxX = manager.Tiles.GetLength(0);
+            maxY = manager.Tiles.GetLength(1);
             tileWidth = picBoard.Width / maxX;
             tileHeight = picBoard.Height / maxY;
-            DrawBoard(board);
+            DrawBoard(manager);
         }
 
-        private void DrawBoard(Board board)
+        private void DrawBoard(GameManager board)
         {
             for (int x = 0; x < maxX; ++x)
                 for (int y = 0; y < maxY; ++y)
@@ -59,7 +59,7 @@ namespace InfluenceBot.GUI
         private void DrawTile(Tile tile)
         {
             Color color = tile.Player?.Color ?? Color.LightGray;
-            int armyCount = board.GetArmyCount(tile.X, tile.Y);
+            int armyCount = manager.GetArmyCount(tile.X, tile.Y);
             string armyCountText = armyCount == 0
                 ? string.Empty
                 : $"{armyCount}";
@@ -71,8 +71,8 @@ namespace InfluenceBot.GUI
 
         private void btnExtractAndPrint_Click(object sender, EventArgs e)
         {
-            var states = AttackStateExtractor.ExtractAttackStates(board, board.CurrentPlayer);
-            txtStatistics.Text= AttackStateStatistics.GetStatistics(states, attackStateNN);
+            var states = AttackStateExtractor.ExtractAttackStates(manager, manager.CurrentPlayer);
+            txtStatistics.Text = AttackStateStatistics.GetStatistics(states, attackStateNN);
         }
 
         private void btnCurrentPlayerAttack_Click(object sender, EventArgs e)
@@ -80,7 +80,7 @@ namespace InfluenceBot.GUI
 
         private bool CurrentPlayerAttack()
         {
-            var states = AttackStateExtractor.ExtractAttackStates(board, board.CurrentPlayer).ToList();
+            var states = AttackStateExtractor.ExtractAttackStates(manager, manager.CurrentPlayer).ToList();
             states.ForEach(x => x.Score = attackStateNN.Evaluate(x));
             var chosenState = states.Where(x => x.Score > 0.5).OrderByDescending(x => x.Score).FirstOrDefault();
             if (chosenState == null)
@@ -88,8 +88,8 @@ namespace InfluenceBot.GUI
                 txtStatistics.Text = "Could not attack, no attack states are good enough";
                 return false; ;
             }
-            board.Attack(chosenState.From, chosenState.To);
-            board.CurrentPlayer.AttackStates.Add(chosenState);
+            manager.Attack(chosenState.From, chosenState.To);
+            manager.CurrentPlayer.AttackStates.Add(chosenState);
             DrawTile(chosenState.From);
             DrawTile(chosenState.To);
             return true;
@@ -100,8 +100,8 @@ namespace InfluenceBot.GUI
 
         private void EndTurn()
         {
-            board.CurrentPlayerIndex = (board.CurrentPlayerIndex + 1) % board.Players.Length;
-            txtStatistics.Text = $"Current player is {board.CurrentPlayerIndex}{Environment.NewLine}";
+            manager.CurrentPlayerIndex = (manager.CurrentPlayerIndex + 1) % manager.Players.Length;
+            txtStatistics.Text = $"Current player is {manager.CurrentPlayerIndex}{Environment.NewLine}";
         }
 
         private void btnStartStopGame_Click(object sender, EventArgs e)
@@ -118,29 +118,50 @@ namespace InfluenceBot.GUI
 
         private void GameTick()
         {
-            if (board.Finished)
+            if (manager.Finished)
             {
+                var loosingPlayer = manager.Players.OrderByDescending(x => x.Ranking).First();
+                var winningPlayer = manager.Players.OrderBy(x => x.Ranking).First();
+                var loosingReinforceStates = loosingPlayer.ReinforceStates.Select(x => x.State).ToArray();
+                var loosingAttackStates = loosingPlayer.AttackStates.Select(x => x.State).ToArray();
+                var winningReinforceStates = winningPlayer.ReinforceStates.Select(x => x.State).ToArray();
+                var winningAttackStates = winningPlayer.AttackStates.Select(x => x.State).ToArray();
+                for (int i = 0; i < 10; ++i)
+                {
+                    reinforceStateNN.teacher.RunEpoch(loosingReinforceStates, CreateDoubles(loosingReinforceStates.Length, 0));
+                    attackStateNN.teacher.RunEpoch(loosingAttackStates, CreateDoubles(loosingAttackStates.Length, 0));
+                    reinforceStateNN.teacher.RunEpoch(winningReinforceStates, CreateDoubles(winningReinforceStates.Length, 1));
+                    attackStateNN.teacher.RunEpoch(winningAttackStates, CreateDoubles(winningAttackStates.Length, 1));
+                }
                 ToggleTimer();
             }
-            else if (board.AttachPhase)
+            else if (manager.AttachPhase)
             {
                 if (!CurrentPlayerAttack())
                 {
-                    board.AttachPhase = false;
-                    board.CurrentPlayer.Reinforcements = board.CurrentPlayer.OwnedTiles;
+                    manager.AttachPhase = false;
+                    manager.CurrentPlayer.Reinforcements = manager.CurrentPlayer.OwnedTiles;
                 }
             }
             else
             {
-                if (board.CurrentPlayer.Reinforcements > 0)
+                if (manager.CurrentPlayer.Reinforcements > 0)
                     CurrentPlayerReinforce();
                 else
                 {
-                    board.AttachPhase = true;
+                    manager.AttachPhase = true;
                     EndTurn();
                 }
             }
-            txtStatistics.Text = PlayerStatistics.GetStatistics(board);
+            txtStatistics.Text = PlayerStatistics.GetStatistics(manager);
+        }
+
+        private double[][] CreateDoubles(int length, int v)
+        {
+            double[][] result = new double[length][];
+            for (int i = 0; i < length; ++i)
+                result[i] = new double []{ v };
+            return result;
         }
 
         private void tmrGame_Tick(object sender, EventArgs e)
@@ -148,19 +169,17 @@ namespace InfluenceBot.GUI
 
         private void CurrentPlayerReinforce()
         {
-            var reinforceStates = ReinforceStateExtractor.ExtractReinforceStates(board, board.CurrentPlayer).ToList();
+            var reinforceStates = ReinforceStateExtractor.ExtractReinforceStates(manager, manager.CurrentPlayer).ToList();
             reinforceStates.ForEach(x => x.Score = reinforceStateNN.Evaluate(x));
             var reinforceState = reinforceStates.OrderByDescending(x => x.Score).FirstOrDefault();
             if (reinforceState == null)
             {
-                board.CurrentPlayer.Reinforcements = 0;
+                manager.CurrentPlayer.Reinforcements = 0;
                 return;
             }
-            reinforceState.Tile.ArmyCount++;
             DrawTile(reinforceState.Tile);
-            board.CurrentPlayer.TotalArmyStrength++;
-            board.CurrentPlayer.Reinforcements--;
-            board.CurrentPlayer.ReinforceStates.Add(reinforceState);
+            manager.ReinforceTile(reinforceState.Tile);
+            manager.CurrentPlayer.ReinforceStates.Add(reinforceState);
         }
 
         private void numTimerInterval_ValueChanged(object sender, EventArgs e)

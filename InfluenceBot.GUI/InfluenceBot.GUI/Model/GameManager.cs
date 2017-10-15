@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace InfluenceBot.GUI.Model
 {
-    public class Board
+    public class GameManager
     {
         public Tile[,] Tiles;
         public Player[] Players;
@@ -101,6 +101,13 @@ namespace InfluenceBot.GUI.Model
                     return Tiles[x, y];
             }
             throw new Exception("Could not find a random unoccupied tile in 100 tries.");
+        }
+
+        internal void ReinforceTile(Tile tile)
+        {
+            tile.ArmyCount++;
+            tile.Player.TotalArmyStrength++;
+            tile.Player.Reinforcements--;
         }
     }
 }

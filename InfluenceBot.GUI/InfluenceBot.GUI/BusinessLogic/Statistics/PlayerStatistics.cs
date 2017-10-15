@@ -6,7 +6,7 @@ namespace InfluenceBot.GUI.BusinessLogic.Statistics
 {
     public static class PlayerStatistics
     {
-        public static string GetStatistics(Board board)
+        public static string GetStatistics(GameManager board)
         {
             var sb = new StringBuilder();
             int ranking = 1;

@@ -29,7 +29,7 @@ namespace InfluenceBot.GUI.BusinessLogic
             return result;
         }
 
-        public static Tuple<Player, int>[] GetArmyStrengths(Board board, Player player)
+        public static Tuple<Player, int>[] GetArmyStrengths(GameManager board, Player player)
         {
             List<Tuple<Player, int>> strengths = new List<Tuple<Player, int>>();
             strengths.Add(new Tuple<Player, int>(player, player.TotalArmyStrength));
@@ -42,7 +42,7 @@ namespace InfluenceBot.GUI.BusinessLogic
             return strengths.ToArray();
         }
 
-        public static Tuple<Player, int>[] GetOwnedTiles(Board board, Player player)
+        public static Tuple<Player, int>[] GetOwnedTiles(GameManager board, Player player)
         {
             List<Tuple<Player, int>> ownedtiles = new List<Tuple<Player, int>>();
             ownedtiles.Add(new Tuple<Player, int>(player, player.OwnedTiles));
