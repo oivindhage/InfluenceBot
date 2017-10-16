@@ -5,6 +5,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Text;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace InfluenceBot.GUI
@@ -23,6 +24,10 @@ namespace InfluenceBot.GUI
         private int maxY;
         private int tileWidth;
         private int tileHeight;
+        private bool RunTask;
+        private int episodeCounter;
+        private int epsilon;
+        private Random r;
 
         public InfluenceBotGui()
         {
@@ -36,9 +41,18 @@ namespace InfluenceBot.GUI
             stringFormat = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
             attackStateNN = new AttackStateNN();
             reinforceStateNN = new ReinforceStateNN();
+            episodeCounter = 0;
+            r = new Random();
+            InitializeManager();
         }
 
+        private void InfluenceBotGui_Validated(object sender, EventArgs e)
+            => InitializeManager();
+
         private void btnInitializeBoard_Click(object sender, EventArgs e)
+            => InitializeManager();
+
+        private void InitializeManager()
         {
             manager = new GameManager();
             manager.Initialize(4);
@@ -75,24 +89,18 @@ namespace InfluenceBot.GUI
             txtStatistics.Text = AttackStateStatistics.GetStatistics(states, attackStateNN);
         }
 
-        private void btnCurrentPlayerAttack_Click(object sender, EventArgs e)
-            => CurrentPlayerAttack();
-
-        private bool CurrentPlayerAttack()
+        private Tile[] CurrentPlayerAttack()
         {
             var states = AttackStateExtractor.ExtractAttackStates(manager, manager.CurrentPlayer).ToList();
             states.ForEach(x => x.Score = attackStateNN.Evaluate(x));
-            var chosenState = states.Where(x => x.Score > 0.5).OrderByDescending(x => x.Score).FirstOrDefault();
+            var chosenState = epsilon > r.Next(1, 101)
+                ? states.OrderBy(x => r.NextDouble()).FirstOrDefault()
+                : states.Where(x => x.Score > 0.5).OrderByDescending(x => x.Score).FirstOrDefault();
             if (chosenState == null)
-            {
-                txtStatistics.Text = "Could not attack, no attack states are good enough";
-                return false; ;
-            }
+                return null;
             manager.Attack(chosenState.From, chosenState.To);
             manager.CurrentPlayer.AttackStates.Add(chosenState);
-            DrawTile(chosenState.From);
-            DrawTile(chosenState.To);
-            return true;
+            return new Tile[] { chosenState.From, chosenState.To };
         }
 
         private void btnEndTurn_Click(object sender, EventArgs e)
@@ -101,7 +109,6 @@ namespace InfluenceBot.GUI
         private void EndTurn()
         {
             manager.CurrentPlayerIndex = (manager.CurrentPlayerIndex + 1) % manager.Players.Length;
-            txtStatistics.Text = $"Current player is {manager.CurrentPlayerIndex}{Environment.NewLine}";
         }
 
         private void btnStartStopGame_Click(object sender, EventArgs e)
@@ -110,34 +117,34 @@ namespace InfluenceBot.GUI
         private void ToggleTimer()
         {
             tmrGame.Enabled = !tmrGame.Enabled;
-            btnCurrentPlayerAttack.Enabled = !tmrGame.Enabled;
             btnExtractAndPrint.Enabled = !tmrGame.Enabled;
             btnEndTurn.Enabled = !tmrGame.Enabled;
             btnInitializeBoard.Enabled = !tmrGame.Enabled;
         }
 
-        private void GameTick()
+        private Tile[] GameTick()
         {
+            Tile[] tilesToBeRedrawn = null;
             if (manager.Finished)
             {
-                var loosingPlayer = manager.Players.OrderByDescending(x => x.Ranking).First();
+                var losingPlayer = manager.Players.OrderByDescending(x => x.Ranking).First();
                 var winningPlayer = manager.Players.OrderBy(x => x.Ranking).First();
-                var loosingReinforceStates = loosingPlayer.ReinforceStates.Select(x => x.State).ToArray();
-                var loosingAttackStates = loosingPlayer.AttackStates.Select(x => x.State).ToArray();
+                var losingReinforceStates = losingPlayer.ReinforceStates.Select(x => x.State).ToArray();
+                var losingAttackStates = losingPlayer.AttackStates.Select(x => x.State).ToArray();
                 var winningReinforceStates = winningPlayer.ReinforceStates.Select(x => x.State).ToArray();
                 var winningAttackStates = winningPlayer.AttackStates.Select(x => x.State).ToArray();
                 for (int i = 0; i < 10; ++i)
                 {
-                    reinforceStateNN.teacher.RunEpoch(loosingReinforceStates, CreateDoubles(loosingReinforceStates.Length, 0));
-                    attackStateNN.teacher.RunEpoch(loosingAttackStates, CreateDoubles(loosingAttackStates.Length, 0));
+                    reinforceStateNN.teacher.RunEpoch(losingReinforceStates, CreateDoubles(losingReinforceStates.Length, 0));
+                    attackStateNN.teacher.RunEpoch(losingAttackStates, CreateDoubles(losingAttackStates.Length, 0));
                     reinforceStateNN.teacher.RunEpoch(winningReinforceStates, CreateDoubles(winningReinforceStates.Length, 1));
                     attackStateNN.teacher.RunEpoch(winningAttackStates, CreateDoubles(winningAttackStates.Length, 1));
                 }
-                ToggleTimer();
             }
             else if (manager.AttachPhase)
             {
-                if (!CurrentPlayerAttack())
+                tilesToBeRedrawn = CurrentPlayerAttack();
+                if (tilesToBeRedrawn == null)
                 {
                     manager.AttachPhase = false;
                     manager.CurrentPlayer.Reinforcements = manager.CurrentPlayer.OwnedTiles;
@@ -146,46 +153,109 @@ namespace InfluenceBot.GUI
             else
             {
                 if (manager.CurrentPlayer.Reinforcements > 0)
-                    CurrentPlayerReinforce();
+                {
+                    var tile = CurrentPlayerReinforce();
+                    if (tile != null)
+                        tilesToBeRedrawn = new Tile[] { tile };
+                }
                 else
                 {
                     manager.AttachPhase = true;
                     EndTurn();
                 }
             }
-            txtStatistics.Text = PlayerStatistics.GetStatistics(manager);
+            return tilesToBeRedrawn;
         }
 
         private double[][] CreateDoubles(int length, int v)
         {
             double[][] result = new double[length][];
             for (int i = 0; i < length; ++i)
-                result[i] = new double []{ v };
+                result[i] = new double[] { v };
             return result;
         }
 
         private void tmrGame_Tick(object sender, EventArgs e)
-            => GameTick();
+        {
+            ProceedAndUpdateUI();
+            if (manager.Finished)
+                ToggleTimer();
+        }
 
-        private void CurrentPlayerReinforce()
+        private void ProceedAndUpdateUI()
+        {
+            var tilesToBeRedrawn = GameTick();
+            if (tilesToBeRedrawn != null)
+                foreach (var tile in tilesToBeRedrawn)
+                    DrawTile(tile);
+        }
+
+        private Tile CurrentPlayerReinforce()
         {
             var reinforceStates = ReinforceStateExtractor.ExtractReinforceStates(manager, manager.CurrentPlayer).ToList();
             reinforceStates.ForEach(x => x.Score = reinforceStateNN.Evaluate(x));
-            var reinforceState = reinforceStates.OrderByDescending(x => x.Score).FirstOrDefault();
-            if (reinforceState == null)
+            var chosenState = epsilon > r.Next(1, 101)
+                ? reinforceStates.OrderBy(x => r.NextDouble()).FirstOrDefault()
+                : reinforceStates.OrderByDescending(x => x.Score).FirstOrDefault();
+            if (chosenState == null)
             {
                 manager.CurrentPlayer.Reinforcements = 0;
-                return;
+                return null;
             }
-            DrawTile(reinforceState.Tile);
-            manager.ReinforceTile(reinforceState.Tile);
-            manager.CurrentPlayer.ReinforceStates.Add(reinforceState);
+            manager.ReinforceTile(chosenState.Tile);
+            manager.CurrentPlayer.ReinforceStates.Add(chosenState);
+            return chosenState.Tile;
         }
 
         private void numTimerInterval_ValueChanged(object sender, EventArgs e)
             => tmrGame.Interval = (int)numTimerInterval.Value;
 
         private void btnAdvanceOneTick_Click(object sender, EventArgs e)
-            => GameTick();
+            => ProceedAndUpdateUI();
+
+        private void btnFullSpeedLearning_Click(object sender, EventArgs e)
+        {
+            if (RunTask)
+            {
+                RunTask = false;
+                return;
+            }
+            RunTask = true;
+            Task t = new Task(() =>
+            {
+                while (RunTask)
+                {
+                    GameTick();
+                    if (manager.Finished)
+                    {
+                        GameTick();
+                        episodeCounter++;
+                        manager.Initialize(4);
+                    }
+                }
+            });
+            t.Start();
+        }
+
+        private void btnSaveNetworks_Click(object sender, EventArgs e)
+        {
+            attackStateNN.network.Save(txtNetworkPath.Text + "\\AttackNetwork.nn");
+            reinforceStateNN.network.Save(txtNetworkPath.Text + "\\ReinforceNetwork.nn");
+        }
+
+        private void btnLoadNetworks_Click(object sender, EventArgs e)
+        {
+            attackStateNN.Load(txtNetworkPath.Text + "\\AttackNetwork.nn");
+            reinforceStateNN.Load(txtNetworkPath.Text + "\\ReinforceNetwork.nn");
+        }
+
+        private void btnRedrawEverything_Click(object sender, EventArgs e)
+        {
+            DrawBoard(manager);
+            lblEpisode.Text = $"{episodeCounter}";
+        }
+
+        private void tbrEpsilon_ValueChanged(object sender, EventArgs e)
+            => epsilon = tbrEpsilon.Value;
     }
 }

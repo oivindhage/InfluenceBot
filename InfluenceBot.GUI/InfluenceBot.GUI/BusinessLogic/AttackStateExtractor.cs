@@ -24,43 +24,41 @@ namespace InfluenceBot.GUI.BusinessLogic
         {
             if (x > 0 && board.Tiles[x - 1, y].Player != player)//can attack left
             {
-                AttackState attackState = BuildAttackState(armyStrengthsAndOwnedTiles,board.Tiles[x,y], board.Tiles[x-1, y]);
+                AttackState attackState = BuildAttackState(armyStrengthsAndOwnedTiles, board.Tiles[x, y], board.Tiles[x - 1, y]);
                 UpdateState(board, ownedTiles, armyStrengthsAndOwnedTiles, x - 2, x + 3, 1, y - 2, y + 3, 1, attackState);
-                yield return attackState; 
+                yield return attackState;
             }
             if (x < (xMax - 1) && board.Tiles[x + 1, y].Player != player)//can attack right
             {
-                AttackState attackState = BuildAttackState(armyStrengthsAndOwnedTiles,board.Tiles[x,y], board.Tiles[x+1, y]);
+                AttackState attackState = BuildAttackState(armyStrengthsAndOwnedTiles, board.Tiles[x, y], board.Tiles[x + 1, y]);
                 UpdateState(board, ownedTiles, armyStrengthsAndOwnedTiles, x + 2, x - 3, -1, y + 2, y - 3, -1, attackState);
-                yield return attackState; 
+                yield return attackState;
             }
             if (y > 0 && board.Tiles[x, y - 1].Player != player)//can attack up
             {
-                AttackState attackState = BuildAttackState(armyStrengthsAndOwnedTiles,board.Tiles[x,y], board.Tiles[x, y-1]);
-                UpdateState(board, ownedTiles, armyStrengthsAndOwnedTiles, x + 2, x - 3, -1, y - 2, y + 3, 1,attackState);
-                yield return attackState; 
+                AttackState attackState = BuildAttackState(armyStrengthsAndOwnedTiles, board.Tiles[x, y], board.Tiles[x, y - 1]);
+                UpdateState(board, ownedTiles, armyStrengthsAndOwnedTiles, x + 2, x - 3, -1, y - 2, y + 3, 1, attackState);
+                yield return attackState;
             }
             if (y < (yMax - 1) && board.Tiles[x, y + 1].Player != player)//can attack down
             {
-                AttackState attackState = BuildAttackState(armyStrengthsAndOwnedTiles,board.Tiles[x,y], board.Tiles[x, y+1]);
+                AttackState attackState = BuildAttackState(armyStrengthsAndOwnedTiles, board.Tiles[x, y], board.Tiles[x, y + 1]);
                 UpdateState(board, ownedTiles, armyStrengthsAndOwnedTiles, x - 2, x + 3, 1, y + 2, y - 3, -1, attackState);
-                yield return attackState; 
+                yield return attackState;
             }
         }
 
-        private static void UpdateState(GameManager board, Tuple<Player, int>[] ownedTiles, double[] armyStrengthsAndOwnedTiles, int startX, int endX, int stepX, int startY, int endY, int stepY,AttackState attackState)
+        private static void UpdateState(GameManager board, Tuple<Player, int>[] ownedTiles, double[] armyStrengthsAndOwnedTiles, int startX, int endX, int stepX, int startY, int endY, int stepY, AttackState attackState)
         {
             int counter = 0;
             for (int tmpX = startX; tmpX != endX; tmpX += stepX)
             {
-                if (tmpX < 0 || tmpX >= 6)
-                    continue;
                 for (int tmpY = startY; tmpY != endY; tmpY += stepY)
                 {
-                    if (tmpY < 0 || tmpY >= 6)
-                        continue;
-                    var currentTile = board.Tiles[tmpX, tmpY];
-                    SetInput(ownedTiles, attackState, counter, currentTile);
+                    if (tmpX < 0 || tmpX >= 6 || tmpY < 0 || tmpY >= 6)
+                        attackState.State[8 + counter + (25 * 4)] = 1;
+                    else
+                        SetInput(ownedTiles, attackState, counter, board.Tiles[tmpX, tmpY]);
                     counter++;
                 }
             }

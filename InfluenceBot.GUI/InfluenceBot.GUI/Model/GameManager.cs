@@ -37,6 +37,7 @@ namespace InfluenceBot.GUI.Model
                 tile.Player = Players[i];
                 Players[i].Tiles.Add(tile);
                 tile.ArmyCount = 2;
+                Finished = false;
             }
             AttachPhase = true;
             NextRanking = numberOfPlayers;

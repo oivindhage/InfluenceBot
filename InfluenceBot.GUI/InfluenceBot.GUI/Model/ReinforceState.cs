@@ -3,7 +3,7 @@
     public class ReinforceState
     {
         //5x5 grid rundt tile, kanskje bare 3x3
-        public double[] State = new double[4 + 4 + 4 * 5 * 5];
+        public double[] State = new double[4 + 4 + 4 * 5 * 5 + 25];
         public Tile Tile;
         public double Score;
         private double weight = double.MinValue;

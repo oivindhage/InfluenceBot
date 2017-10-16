@@ -58,14 +58,12 @@ namespace InfluenceBot.GUI.BusinessLogic
             int counter = 0;
             for (int tmpX = startX; tmpX != endX; tmpX += stepX)
             {
-                if (tmpX < 0 || tmpX >= 6)
-                    continue;
                 for (int tmpY = startY; tmpY != endY; tmpY += stepY)
                 {
-                    if (tmpY < 0 || tmpY >= 6)
-                        continue;
-                    var currentTile = board.Tiles[tmpX, tmpY];
-                    SetInput(ownedTiles, reinforceState, counter, currentTile);
+                    if (tmpX < 0 || tmpX >= 6 || tmpY < 0 || tmpY >= 6)
+                        reinforceState.State[8 + counter + (25 * 4)] = 1;
+                    else
+                        SetInput(ownedTiles, reinforceState, counter, board.Tiles[tmpX, tmpY]);
                     counter++;
                 }
             }
